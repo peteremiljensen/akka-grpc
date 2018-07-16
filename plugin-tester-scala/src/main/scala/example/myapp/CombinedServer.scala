@@ -15,10 +15,12 @@ import javax.net.ssl.SSLContext
 
 import scala.concurrent.ExecutionContext
 import scala.concurrent.Future
+import akka.Done
 import akka.actor.ActorSystem
 import akka.grpc.scaladsl.ServiceHandler
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.HttpsConnectionContext
+import akka.http.scaladsl.{HttpConnectionContext, UseHttp2}
 import akka.http.scaladsl.model.StatusCodes
 import akka.http.scaladsl.model.HttpRequest
 import akka.http.scaladsl.model.HttpResponse
@@ -31,6 +33,11 @@ import example.myapp.helloworld.grpc._
 
 import example.myapp.echo._
 import example.myapp.echo.grpc._
+
+import example.myapp.opposite._
+import example.myapp.opposite.grpc._
+
+import akka.grpc.GrpcClientSettings
 
 //#concatOrNotFound
 import akka.grpc.scaladsl.ServiceHandler
@@ -65,6 +72,30 @@ object CombinedServer {
     //#concatOrNotFound
     .foreach { binding =>
       println(s"gRPC server bound to: ${binding.localAddress}")
+    }
+  }
+
+  def createOppositeServer(): Future[Done] = {
+    // important to enable HTTP/2 in ActorSystem's config
+    val conf = ConfigFactory.parseString("akka.http.server.preview.enable-http2 = on")
+      .withFallback(ConfigFactory.defaultApplication())
+    implicit val sys: ActorSystem = ActorSystem("server", conf)
+    implicit val mat: Materializer = ActorMaterializer()
+    implicit val ec: ExecutionContext = sys.dispatcher
+
+    val oppositeService =
+      OppositeServiceHandler(new OppositeServiceImpl)
+
+    Http().bindAndHandleAsync(
+      oppositeService,
+      interface = "127.0.0.1",
+      port = 8081,
+      connectionContext = HttpConnectionContext(UseHttp2.Always)
+    )
+    //#concatOrNotFound
+    .map { binding =>
+      println(s"gRPC server bound to: ${binding.localAddress}")
+      Done
     }
   }
 

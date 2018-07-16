@@ -1,0 +1,19 @@
+syntax = "proto3";
+
+option java_multiple_files = true;
+option java_package = "example.myapp.opposite.grpc";
+
+package opposite;
+
+service OppositeService {
+  rpc serverStreaming (ClientMessage) returns (stream ServerMessage) {}
+  rpc clientStreaming (stream ClientMessage) returns (ServerMessage) {}
+}
+
+message ServerMessage {
+  string payload = 1;
+}
+
+message ClientMessage {
+  string payload = 1;
+}
